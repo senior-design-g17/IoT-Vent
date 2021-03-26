@@ -6,6 +6,7 @@
 #include "pinDefs.h"
 #include "serialSettings.h"
 #include "radioSettings.h"
+#include "servoSettings.h"
 
 char buff[61]; //61 max payload for radio
 
@@ -16,6 +17,7 @@ bool newPayload = false;
 
 // Servo
 Servo servo;
+Vent_State vent;
 
 void setup()
 {
@@ -37,10 +39,14 @@ void setup()
 		radio.encrypt(ENCRYPTKEY);
 
 	// Pins
+	pinMode(SERVO_LATCH, OUTPUT);
+	digitalWrite(SERVO_LATCH, HIGH);
 	servo.attach(SERVO);
-	servo.write(0);
 
-	// LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, TEMP_ISR, CHANGE);
+	ventAction(open);
+
+	// TODO: handle low power
+	//LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, SERVO_ISR, CHANGE);
 
 	payload.zoneID = ZONE_ID;
 }
@@ -49,18 +55,51 @@ void loop()
 {
 	if (radio.receiveDone())
 	{
-		if (radio.DATALEN == sizeof(Payload))
-			payload = *(Payload *)radio.DATA;
+		payload = getLoad();
 
-		if (radio.ACKRequested())
+		if (payload.type == vent_state)
 		{
-			radio.sendACK();
-			DEBUGln("ACK sent");
-		}
-
-		if(payload.type == vent_state)
-		{
-			servo.write(payload.data);
+			ventAction((Vent_State)payload.data);
 		}
 	}
 }
+
+Payload getLoad()
+{
+	Payload load;
+
+	if (radio.DATALEN == sizeof(Payload))
+		load = *(Payload *)radio.DATA;
+
+	if (radio.ACKRequested())
+	{
+		radio.sendACK();
+		DEBUGln("ACK sent");
+	}
+
+	DEBUGln(load.zoneID);
+	DEBUGln(load.type);
+	DEBUGln(load.data);
+
+	return load;
+}
+
+void SERVO_ISR()
+{
+	digitalWrite(SERVO_LATCH, LOW);
+}
+
+void ventAction(Vent_State state)
+{
+	if (vent == state)
+		return;
+
+	digitalWrite(SERVO_LATCH, HIGH);
+
+	if (state == open)
+		servo.write(SERVO_OPEN);
+	else
+		servo.write(SERVO_CLOSED);
+}
+
+// todo make an askForState function

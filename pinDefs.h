@@ -3,3 +3,4 @@
 
 // Servo
 #define SERVO 5
+#define SERVO_LATCH 4
