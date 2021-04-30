@@ -17,7 +17,7 @@ bool newPayload = false;
 
 // Servo
 Servo servo;
-Vent_State vent;
+Vent_State ventState;
 
 void setup()
 {
@@ -40,13 +40,12 @@ void setup()
 
 	// Pins
 	pinMode(SERVO_LATCH, OUTPUT);
-	digitalWrite(SERVO_LATCH, HIGH);
 	servo.attach(SERVO);
 
 	ventAction(open);
 
 	// TODO: handle low power
-	//LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, SERVO_ISR, CHANGE);
+	// LowPower.attachInterruptWakeup(RTC_ALARM_WAKEUP, SERVO_ISR, CHANGE);
 
 	payload.zoneID = ZONE_ID;
 }
@@ -62,6 +61,8 @@ void loop()
 			ventAction((Vent_State)payload.data);
 		}
 	}
+
+	// LowPower.sleep((int)SERVO_TIMEOUT_MS);
 }
 
 Payload getLoad()
@@ -91,15 +92,26 @@ void SERVO_ISR()
 
 void ventAction(Vent_State state)
 {
-	if (vent == state)
+	state == open ? Debugln("open") : DEBUGln("close");
+	
+	if (ventState == state)
 		return;
 
 	digitalWrite(SERVO_LATCH, HIGH);
 
 	if (state == open)
+	{
 		servo.write(SERVO_OPEN);
+		ventState = open;
+	}
 	else
+	{
 		servo.write(SERVO_CLOSED);
+		ventState = close;
+	}
+
+	delay(SERVO_TIMEOUT_MS);
+	digitalWrite(SERVO_LATCH, LOW);
 }
 
 // todo make an askForState function
